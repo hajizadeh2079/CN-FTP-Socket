@@ -2,9 +2,15 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 #include <bits/stdc++.h>
 
 using namespace std;
+
 
 int find_nth_occur(string str, char ch, int n) {
     int occur = 0;
@@ -16,6 +22,7 @@ int find_nth_occur(string str, char ch, int n) {
     }
     return -1;
 }
+
 
 class User {
 public:
@@ -38,6 +45,7 @@ private:
     bool admin;
     int size;
 };
+
 
 class Server {
 public:
@@ -71,16 +79,92 @@ public:
             special_files.push_back(special_file);
         }
     }
+
+    void setup() {
+        int opt = 1;
+        int i;
+
+        client_sock_cmd = (int*)malloc(10 * sizeof(int));
+        for (i = 0; i < 10; i++)
+            client_sock_cmd[i] = 0;
+
+        sockfd_cmd = socket(AF_INET, SOCK_STREAM, 0);
+        setsockopt(sockfd_cmd, SOL_SOCKET, SO_REUSEADDR, (char *) &opt, sizeof(opt));
+        addr_cmd.sin_family = AF_INET;
+        addr_cmd.sin_port = htons(command_channel_port);
+        inet_pton(AF_INET, "127.0.0.1", &addr_cmd.sin_addr.s_addr);
+
+        bind(sockfd_cmd, (struct sockaddr *)&addr_cmd, sizeof(addr_cmd));
+
+        listen(sockfd_cmd, 5);
+    }
+
+    void run() {
+        fd_set fds;
+        int max_sd, i, len, new_sock, flag, valread;
+        int cli_size = 10;
+        while (1) {
+            FD_ZERO(&fds);
+            FD_SET(sockfd_cmd, &fds);
+            max_sd = sockfd_cmd;
+            for (i = 0; i < cli_size; i++) {
+                if (client_sock_cmd[i] > 0)
+                    FD_SET(client_sock_cmd[i], &fds);
+                if (client_sock_cmd[i] > max_sd)
+                    max_sd = client_sock_cmd[i];
+            }
+
+            select(max_sd + 1, &fds, NULL, NULL, NULL);
+
+            if (FD_ISSET(sockfd_cmd, &fds)) {
+                len = sizeof(addr_cmd);
+                new_sock = accept(sockfd_cmd, (struct sockaddr *)&addr_cmd, (socklen_t *)&len);
+
+                flag = 0;
+                for (i = 0; i < cli_size; i++) {
+                    if (client_sock_cmd[i] == 0) {
+                        client_sock_cmd[i] = new_sock;
+                        flag = 1;
+                        break;
+                    }
+                }
+                if (flag == 0) {
+                    cli_size++;
+                    client_sock_cmd = (int*)realloc(client_sock_cmd, cli_size * sizeof(int));
+                    client_sock_cmd[cli_size - 1] = new_sock;
+                }
+            }
+
+            for (i = 0; i < cli_size; i++) {
+                if (FD_ISSET(client_sock_cmd[i], &fds)) {
+                    valread = read(client_sock_cmd[i], buffer, 256);
+                    if (valread == 0) {
+                        close(client_sock_cmd[i]);
+                        client_sock_cmd[i] = 0;
+                    }
+                    else {
+                        // Process Command
+                    }
+                }
+            }
+        }
+    }
 private:
     int command_channel_port;
     int data_channel_port;
     vector<User> users;
     vector<string> special_files;
+    struct sockaddr_in addr_cmd;
+    int sockfd_cmd;
+    int *client_sock_cmd;
+    char buffer[1024] = {0};
 };
 
 
 int main(int argc, char const *argv[]) {
     Server server;
     server.config();
+    server.setup();
+    server.run();
     return 0;
 }
