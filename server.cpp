@@ -88,26 +88,39 @@ public:
         for (i = 0; i < 10; i++)
             client_sock_cmd[i] = 0;
 
+        client_sock_data = (int*)malloc(10 * sizeof(int));
+        for (i = 0; i < 10; i++)
+            client_sock_data[i] = 0;
+
         sockfd_cmd = socket(AF_INET, SOCK_STREAM, 0);
         setsockopt(sockfd_cmd, SOL_SOCKET, SO_REUSEADDR, (char *) &opt, sizeof(opt));
         addr_cmd.sin_family = AF_INET;
         addr_cmd.sin_port = htons(command_channel_port);
         inet_pton(AF_INET, "127.0.0.1", &addr_cmd.sin_addr.s_addr);
 
+        sockfd_data = socket(AF_INET, SOCK_STREAM, 0);
+        setsockopt(sockfd_data, SOL_SOCKET, SO_REUSEADDR, (char *) &opt, sizeof(opt));
+        addr_data.sin_family = AF_INET;
+        addr_data.sin_port = htons(data_channel_port);
+        inet_pton(AF_INET, "127.0.0.1", &addr_data.sin_addr.s_addr);
+
         bind(sockfd_cmd, (struct sockaddr *)&addr_cmd, sizeof(addr_cmd));
+        bind(sockfd_data, (struct sockaddr *)&addr_data, sizeof(addr_data));
 
         listen(sockfd_cmd, 5);
+        listen(sockfd_data, 5);
     }
 
     void run() {
         fd_set fds;
-        int max_sd, i, len, new_sock, flag, valread;
-        int cli_size = 10;
+        int max_sd, i, len, new_sock_cmd, new_sock_data, flag, valread;
+        int cli_size_cmd = 10;
+        int cli_size_data = 10;
         while (1) {
             FD_ZERO(&fds);
             FD_SET(sockfd_cmd, &fds);
             max_sd = sockfd_cmd;
-            for (i = 0; i < cli_size; i++) {
+            for (i = 0; i < cli_size_cmd; i++) {
                 if (client_sock_cmd[i] > 0)
                     FD_SET(client_sock_cmd[i], &fds);
                 if (client_sock_cmd[i] > max_sd)
@@ -118,29 +131,48 @@ public:
 
             if (FD_ISSET(sockfd_cmd, &fds)) {
                 len = sizeof(addr_cmd);
-                new_sock = accept(sockfd_cmd, (struct sockaddr *)&addr_cmd, (socklen_t *)&len);
+                new_sock_cmd = accept(sockfd_cmd, (struct sockaddr *)&addr_cmd, (socklen_t *)&len);
 
                 flag = 0;
-                for (i = 0; i < cli_size; i++) {
+                for (i = 0; i < cli_size_cmd; i++) {
                     if (client_sock_cmd[i] == 0) {
-                        client_sock_cmd[i] = new_sock;
+                        client_sock_cmd[i] = new_sock_cmd;
                         flag = 1;
                         break;
                     }
                 }
                 if (flag == 0) {
-                    cli_size++;
-                    client_sock_cmd = (int*)realloc(client_sock_cmd, cli_size * sizeof(int));
-                    client_sock_cmd[cli_size - 1] = new_sock;
+                    cli_size_cmd++;
+                    client_sock_cmd = (int*)realloc(client_sock_cmd, cli_size_cmd * sizeof(int));
+                    client_sock_cmd[cli_size_cmd - 1] = new_sock_cmd;
+                }
+
+                len = sizeof(addr_data);
+                new_sock_data = accept(sockfd_data, (struct sockaddr *)&addr_data, (socklen_t *)&len);
+
+                flag = 0;
+                for (i = 0; i < cli_size_data; i++) {
+                    if (client_sock_data[i] == 0) {
+                        client_sock_data[i] = new_sock_data;
+                        flag = 1;
+                        break;
+                    }
+                }
+                if (flag == 0) {
+                    cli_size_data++;
+                    client_sock_data = (int*)realloc(client_sock_data, cli_size_data * sizeof(int));
+                    client_sock_data[cli_size_data - 1] = new_sock_data;
                 }
             }
 
-            for (i = 0; i < cli_size; i++) {
+            for (i = 0; i < cli_size_cmd; i++) {
                 if (FD_ISSET(client_sock_cmd[i], &fds)) {
-                    valread = read(client_sock_cmd[i], buffer, 256);
+                    valread = read(client_sock_cmd[i], buffer_cmd, 1024);
                     if (valread == 0) {
                         close(client_sock_cmd[i]);
                         client_sock_cmd[i] = 0;
+                        close(client_sock_data[i]);
+                        client_sock_data[i] = 0;
                     }
                     else {
                         // Process Command
@@ -155,9 +187,12 @@ private:
     vector<User> users;
     vector<string> special_files;
     struct sockaddr_in addr_cmd;
+    struct sockaddr_in addr_data;
     int sockfd_cmd;
+    int sockfd_data;
     int *client_sock_cmd;
-    char buffer[1024] = {0};
+    int *client_sock_data;
+    char buffer_cmd[1024] = {0};
 };
 
 
