@@ -10,6 +10,9 @@
 #include <map>
 #include <bits/stdc++.h>
 
+#define USER_OK_MSG "331: User name okay, need password."
+#define USER_PASSWORD_INVALID_MSG "430: Invalid username or password"
+
 using namespace std;
 
 
@@ -49,11 +52,28 @@ private:
 
 class Handler {
 public:
-    void handle_cmd(string cmd, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users) {
-        vector<string> cmd_vector = convertStringToVector(cmd);
+    string handle_cmd(string cmd, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
+        vector<string> cmd_vector = convert_string_to_vector(cmd);
+        if(cmd_vector[0] == "user")
+            return check_user(cmd_vector[1], login_user, users, socket_num);
     }
 
-    vector<string> convertStringToVector(string str) {
+    string check_user(string user, map<int, string> &login_user, vector<User> &users, int socket_num) {
+        bool flag = false;
+        for(int i = 0; i < users.size(); i++) {
+            if(user == users[i].get_user()) {
+                flag = true;
+                login_user.insert(pair<int, string>(socket_num, user));
+                break;
+            }
+        }
+        if(flag)
+            return USER_OK_MSG;
+        else
+            return USER_PASSWORD_INVALID_MSG;
+    }
+
+    vector<string> convert_string_to_vector(string str) {
         vector<string> temp;
         istringstream ss(str);
         string word;
@@ -196,7 +216,10 @@ public:
                     }
                     else {
                         string cmd(buffer_cmd);
-                        handler.handle_cmd(cmd, login_user, does_login, users);
+                        string result = handler.handle_cmd(cmd, login_user, does_login, users, client_sock_cmd[i]);
+                        memset(buffer_cmd, 0, sizeof(buffer_cmd));
+                        strcpy(buffer_cmd, result.c_str());
+                        send(client_sock_cmd[i], buffer_cmd, 1024, 0);
                     }
                 }
             }
