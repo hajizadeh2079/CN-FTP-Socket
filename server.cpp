@@ -11,6 +11,7 @@
 #include <ctime>
 #include <bits/stdc++.h>
 #include <sys/stat.h>
+#include <dirent.h>
 
 #define USER_OK_MSG "331: User name okay, need password."
 #define USER_PASSWORD_INVALID_MSG "430: Invalid username or password"
@@ -91,8 +92,23 @@ public:
             else
                 return change_dir(cmd_vector[1], login_user, does_login, users, socket_num);
         }
+        else if(cmd_vector[0] == "rename")
+            return change_file_name(cmd_vector[1], cmd_vector[2], login_user, does_login, users, socket_num);
         else
             return WRONG_CMD;
+    }
+
+    string change_file_name(string from, string to, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
+        if(does_login.find(socket_num)->second == false)
+            return NEED_LOGIN;
+        string old_name, new_name;
+        for(int i = 0; i < users.size(); i++) {
+            string main_dir(get_current_dir_name());
+            chdir(users[i].get_directory().c_str());
+            rename(from.c_str(), to.c_str());
+            chdir(main_dir.c_str());
+        }
+        return SUCCESSFUL_CHANGE; 
     }
 
     string change_dir(string dirname, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
