@@ -20,6 +20,7 @@
 #define SUCCESSFUL_QUIT "221: Successful Quit."
 #define WRONG_CMD "501: Syntax error in parameters or arguments"
 #define ERROR "500: Error"
+#define SUCCESSFUL_CHANGE "250: Successful change."
 
 using namespace std;
 
@@ -51,6 +52,7 @@ public:
     bool is_admin() { return admin; }
     int get_size() { return size; }
     string get_directory() {return directory;}
+    void set_directory(string dir) {directory = dir;}
 
     void decrease_size(int amount) { size -= amount; }
 private:
@@ -83,8 +85,52 @@ public:
             else if(cmd_vector[1] == "-f")
                 return delete_file(cmd_vector[2], login_user, does_login, users, socket_num);
         }
+        else if(cmd_vector[0] == "cwd") {
+            if(cmd_vector.size() == 1)
+                return change_dir("", login_user, does_login, users, socket_num);
+            else
+                return change_dir(cmd_vector[1], login_user, does_login, users, socket_num);
+        }
         else
             return WRONG_CMD;
+    }
+
+    string change_dir(string dirname, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
+        if(does_login.find(socket_num)->second == false)
+            return NEED_LOGIN;
+        string path;
+        string final_dir;
+        bool flag = false;
+        for(int i = 0; i < users.size(); i++) {
+            if(login_user[socket_num] == users[i].get_user()) {
+                path = users[i].get_directory() + "/" + dirname;
+                if(dirname == "") {
+                    users[i].set_directory(string(get_current_dir_name()));
+                    flag = true;
+                } 
+                else if(dirname == "..") {
+                    if(string(get_current_dir_name()) != users[i].get_directory()) {
+                        users[i].set_directory(users[i].get_directory().substr(0, users[i].get_directory().find_last_of("/")));
+                        flag = true;
+                    }
+                }
+                else if(is_path_exist(path)) {
+                    users[i].set_directory(path);
+                    flag = true;
+                }
+                final_dir = users[i].get_directory();
+            }
+        }
+        if(flag)
+            return SUCCESSFUL_CHANGE;
+        else
+            return ERROR;
+    }
+
+    bool is_path_exist(string path)
+    {
+        struct stat buffer;
+        return (stat (path.c_str(), &buffer) == 0);
     }
 
     string delete_file(string dirname, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
