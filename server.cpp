@@ -47,6 +47,21 @@ private:
     int size;
 };
 
+class Handler {
+public:
+    void handle_cmd(string cmd, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users) {
+        vector<string> cmd_vector = convertStringToVector(cmd);
+    }
+
+    vector<string> convertStringToVector(string str) {
+        vector<string> temp;
+        istringstream ss(str);
+        string word;
+        while(ss >> word)
+            temp.push_back(word);
+        return temp;
+    }
+};
 
 class Server {
 public:
@@ -110,10 +125,6 @@ public:
 
         listen(sockfd_cmd, 5);
         listen(sockfd_data, 5);
-    }
-
-    void process_cmd(string inp) {
-
     }
 
     void run() {
@@ -184,8 +195,8 @@ public:
                         client_sock_data[i] = 0;
                     }
                     else {
-                        string inp(buffer_cmd);
-                        process_cmd(inp);
+                        string cmd(buffer_cmd);
+                        handler.handle_cmd(cmd, login_user, does_login, users);
                     }
                 }
             }
@@ -205,7 +216,9 @@ private:
     int *client_sock_cmd;
     int *client_sock_data;
     char buffer_cmd[1024] = {0};
+    Handler handler;
 };
+
 
 
 int main(int argc, char const *argv[]) {

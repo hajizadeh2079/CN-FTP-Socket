@@ -36,8 +36,8 @@ int main(int argc, char* argv[]) {
     string inp;
     while (true) {
         getline(cin, inp);
-        strcpy(buffer_cmd, inp.c_str());
         memset(buffer_cmd, 0, sizeof(buffer_cmd));
+        strcpy(buffer_cmd, inp.c_str());
         send(sockfd_cmd, buffer_cmd, 1024, 0);
         memset(buffer_cmd, 0, sizeof(buffer_cmd));
         read(sockfd_cmd, buffer_cmd, 1024);
