@@ -75,8 +75,79 @@ public:
             return show_current_dir(login_user, does_login, users, socket_num);
         else if(cmd_vector[0] == "mkd")
             return make_new_dir(cmd_vector[1], login_user, does_login, users, socket_num);
+        else if(cmd_vector[0] == "mkf")
+            return make_new_file(cmd_vector[1], login_user, does_login, users, socket_num);
+        else if(cmd_vector[0] == "dele") {
+            if(cmd_vector[1] == "-d")
+                return delete_dir(cmd_vector[2], login_user, does_login, users, socket_num);
+            else if(cmd_vector[1] == "-f")
+                return delete_file(cmd_vector[2], login_user, does_login, users, socket_num);
+        }
         else
             return WRONG_CMD;
+    }
+
+    string delete_file(string dirname, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
+        if(does_login.find(socket_num)->second == false)
+            return NEED_LOGIN;
+
+        string path;
+        for(int i = 0; i < users.size(); i++) {
+            if(login_user[socket_num] == users[i].get_user()) {
+                path = users[i].get_directory() + "/" + dirname;
+                break;
+            }
+        } 
+
+        if (remove(path.c_str()) == 0) {
+            ofstream log_file("log.txt", ios_base::app);
+            log_file << login_user[socket_num] + " deleted " + dirname + " file. Time: " + get_current_data_time();
+            log_file.close();
+            return "250: " + dirname + " deleted.";
+        }
+        else
+            return ERROR;
+    }
+    
+    string delete_dir(string dirname, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
+        if(does_login.find(socket_num)->second == false)
+            return NEED_LOGIN;
+        
+        string path;
+        for(int i = 0; i < users.size(); i++) {
+            if(login_user[socket_num] == users[i].get_user()) {
+                path = users[i].get_directory() + "/" + dirname;
+                break;
+            }
+        } 
+        if(rmdir(path.c_str()) == -1)
+            return ERROR;
+  
+        else {
+            ofstream log_file("log.txt", ios_base::app);
+            log_file << login_user[socket_num] + " deleted " + dirname + " directory. Time: " + get_current_data_time();
+            log_file.close();
+            return "250: " + dirname + " deleted.";
+        }
+    }
+
+    string make_new_file(string dirname, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
+        if(does_login.find(socket_num)->second == false)
+            return NEED_LOGIN;
+        
+        string path;
+        for(int i = 0; i < users.size(); i++) {
+            if(login_user[socket_num] == users[i].get_user()) {
+                path = users[i].get_directory() + "/" + dirname;
+                break;
+            }
+        }
+        ofstream user_file(path);
+        user_file.close();
+        ofstream log_file("log.txt", ios_base::app);
+        log_file << login_user[socket_num] + " made " + dirname + " file. Time: " + get_current_data_time();
+        log_file.close();
+        return "257: " + dirname + " created.";
     }
 
     string make_new_dir(string dirname, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
