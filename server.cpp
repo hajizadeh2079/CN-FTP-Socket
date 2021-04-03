@@ -12,6 +12,8 @@
 
 #define USER_OK_MSG "331: User name okay, need password."
 #define USER_PASSWORD_INVALID_MSG "430: Invalid username or password"
+#define BAD_SEQ "503: Bad sequence of commands"
+#define SUCCESSFUL_LOGIN "230: User logged in, proceed. Logged out if appropriate."
 
 using namespace std;
 
@@ -56,6 +58,27 @@ public:
         vector<string> cmd_vector = convert_string_to_vector(cmd);
         if(cmd_vector[0] == "user")
             return check_user(cmd_vector[1], login_user, users, socket_num);
+        else if(cmd_vector[0] == "pass")
+            return check_pass(cmd_vector[1], login_user, does_login, users, socket_num);
+    }
+
+    string check_pass(string pass, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
+        map<int ,string>::iterator it;
+        it = login_user.find(socket_num);
+        if (it == login_user.end())
+            return BAD_SEQ;
+        bool flag = false;
+        for(int i = 0; i < users.size(); i++) {
+            if(it->second == users[i].get_user() && pass == users[i].get_password()) {
+                flag = true;
+                does_login[socket_num] = true;
+                break;
+            }
+        }
+        if(flag)
+            return SUCCESSFUL_LOGIN;
+        else
+            return USER_PASSWORD_INVALID_MSG;
     }
 
     string check_user(string user, map<int, string> &login_user, vector<User> &users, int socket_num) {
@@ -63,7 +86,7 @@ public:
         for(int i = 0; i < users.size(); i++) {
             if(user == users[i].get_user()) {
                 flag = true;
-                login_user.insert(pair<int, string>(socket_num, user));
+                login_user[socket_num] = user;
                 break;
             }
         }
