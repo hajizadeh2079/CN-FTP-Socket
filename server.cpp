@@ -8,8 +8,9 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <map>
-#include<ctime>
+#include <ctime>
 #include <bits/stdc++.h>
+#include <sys/stat.h>
 
 #define USER_OK_MSG "331: User name okay, need password."
 #define USER_PASSWORD_INVALID_MSG "430: Invalid username or password"
@@ -18,6 +19,7 @@
 #define NEED_LOGIN "332: Need account for login."
 #define SUCCESSFUL_QUIT "221: Successful Quit."
 #define WRONG_CMD "501: Syntax error in parameters or arguments"
+#define ERROR "500: Error"
 
 using namespace std;
 
@@ -71,10 +73,34 @@ public:
             return quit_user(login_user, does_login, socket_num);
         else if(cmd_vector[0] == "pwd")
             return show_current_dir(login_user, does_login, users, socket_num);
+        else if(cmd_vector[0] == "mkd")
+            return make_new_dir(cmd_vector[1], login_user, does_login, users, socket_num);
         else
             return WRONG_CMD;
     }
 
+    string make_new_dir(string dirname, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
+        if(does_login.find(socket_num)->second == false)
+            return NEED_LOGIN;
+        
+        string path;
+        for(int i = 0; i < users.size(); i++) {
+            if(login_user[socket_num] == users[i].get_user()) {
+                path = users[i].get_directory() + "/" + dirname;
+                break;
+            }
+        } 
+        if(mkdir(path.c_str(), 0777) == -1)
+            return ERROR;
+  
+        else {
+            ofstream log_file("log.txt", ios_base::app);
+            log_file << login_user[socket_num] + " made " + dirname + " directory. Time: " + get_current_data_time();
+            log_file.close();
+            return "257: " + dirname + " created.";
+        }
+    }
+    
     string show_current_dir(map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
         if(does_login.find(socket_num)->second == false)
             return NEED_LOGIN;
