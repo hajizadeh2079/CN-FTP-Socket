@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <map>
+#include<ctime>
 #include <bits/stdc++.h>
 
 #define USER_OK_MSG "331: User name okay, need password."
@@ -35,9 +36,10 @@ int find_nth_occur(string str, char ch, int n) {
 
 class User {
 public:
-    User(string _user, string _password, bool _admin, int _size) {
+    User(string _user, string _password, string _directory ,bool _admin, int _size) {
         user = _user;
         password = _password;
+        directory = _directory;
         admin = _admin;
         size = _size;
     }
@@ -46,11 +48,13 @@ public:
     string get_password() { return password; }
     bool is_admin() { return admin; }
     int get_size() { return size; }
+    string get_directory() {return directory;}
 
     void decrease_size(int amount) { size -= amount; }
 private:
     string user;
     string password;
+    string directory;
     bool admin;
     int size;
 };
@@ -65,13 +69,28 @@ public:
             return check_pass(cmd_vector[1], login_user, does_login, users, socket_num);
         else if(cmd_vector[0] == "quit")
             return quit_user(login_user, does_login, socket_num);
+        else if(cmd_vector[0] == "pwd")
+            return show_current_dir(login_user, does_login, users, socket_num);
         else
             return WRONG_CMD;
+    }
+
+    string show_current_dir(map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
+        if(does_login.find(socket_num)->second == false)
+            return NEED_LOGIN;
+        for(int i = 0; i < users.size(); i++) {
+            if(login_user[socket_num] == users[i].get_user()) {
+                return "257: " + users[i].get_directory();
+            }
+        }
     }
 
     string quit_user(map<int, string> &login_user, map<int, bool> &does_login, int socket_num) {
         if(does_login.find(socket_num)->second == false)
             return NEED_LOGIN;
+        ofstream log_file("log.txt", ios_base::app);
+        log_file << login_user[socket_num] + " logged out. Time: " + get_current_data_time();
+        log_file.close();
         login_user.erase(socket_num);
         does_login[socket_num] = false;
         return SUCCESSFUL_QUIT;
@@ -91,8 +110,12 @@ public:
                 break;
             }
         }
-        if(flag)
+        if(flag) {
+            ofstream log_file("log.txt", ios_base::app);
+            log_file << login_user[socket_num] + " logged in. Time: " + get_current_data_time();
+            log_file.close();
             return SUCCESSFUL_LOGIN;
+        }
         else
             return USER_PASSWORD_INVALID_MSG;
     }
@@ -112,6 +135,14 @@ public:
             return USER_PASSWORD_INVALID_MSG;
     }
 
+    string get_current_data_time() {
+        time_t tt;
+        struct tm * ti;
+        time (&tt);
+        ti = localtime(&tt);
+        return string(asctime(ti));
+    }
+
     vector<string> convert_string_to_vector(string str) {
         vector<string> temp;
         istringstream ss(str);
@@ -125,6 +156,7 @@ public:
 class Server {
 public:
     void config() {
+        string current_dir(get_current_dir_name());
         ifstream file("config.json");
         string temp;
         getline(file, temp, ',');
@@ -143,7 +175,7 @@ public:
             admin = temp.substr(find_nth_occur(temp, '"', 3) + 1, find_nth_occur(temp, '"', 4) - find_nth_occur(temp, '"', 3) - 1);
             getline(stream, temp, ',');
             size = temp.substr(find_nth_occur(temp, '"', 3) + 1, find_nth_occur(temp, '"', 4) - find_nth_occur(temp, '"', 3) - 1);
-            users.push_back(User(user, password, (admin == "true"), atoi(size.c_str())));
+            users.push_back(User(user, password, current_dir, (admin == "true"), atoi(size.c_str())));
         }
         getline(file, temp, '[');
         getline(file, temp, ']');
