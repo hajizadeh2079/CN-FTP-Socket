@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <map>
 #include <bits/stdc++.h>
 
 using namespace std;
@@ -186,6 +187,7 @@ private:
     int data_channel_port;
     vector<User> users;
     vector<string> special_files;
+    map<int, string> login;
     struct sockaddr_in addr_cmd;
     struct sockaddr_in addr_data;
     int sockfd_cmd;
