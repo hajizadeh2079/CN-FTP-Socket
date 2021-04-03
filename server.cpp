@@ -14,6 +14,9 @@
 #define USER_PASSWORD_INVALID_MSG "430: Invalid username or password"
 #define BAD_SEQ "503: Bad sequence of commands"
 #define SUCCESSFUL_LOGIN "230: User logged in, proceed. Logged out if appropriate."
+#define NEED_LOGIN "332: Need account for login."
+#define SUCCESSFUL_QUIT "221: Successful Quit."
+#define WRONG_CMD "501: Syntax error in parameters or arguments"
 
 using namespace std;
 
@@ -60,6 +63,19 @@ public:
             return check_user(cmd_vector[1], login_user, users, socket_num);
         else if(cmd_vector[0] == "pass")
             return check_pass(cmd_vector[1], login_user, does_login, users, socket_num);
+        else if(cmd_vector[0] == "quit")
+            return quit_user(login_user, does_login, socket_num);
+        else
+            return WRONG_CMD;
+    }
+
+    string quit_user(map<int, string> &login_user, map<int, bool> &does_login, int socket_num) {
+        if(does_login.find(socket_num)->second == false)
+            return NEED_LOGIN;
+        login_user.erase(socket_num);
+        does_login[socket_num] = false;
+        return SUCCESSFUL_QUIT;
+        
     }
 
     string check_pass(string pass, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
