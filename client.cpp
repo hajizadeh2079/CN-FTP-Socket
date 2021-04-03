@@ -33,5 +33,15 @@ int main(int argc, char* argv[]) {
     connect(sockfd_cmd, (struct sockaddr *)&serv_addr_cmd, sizeof(serv_addr_cmd));
     connect(sockfd_data, (struct sockaddr *)&serv_addr_data, sizeof(serv_addr_data));
 
+    string inp;
+    while (true) {
+        getline(cin, inp);
+        strcpy(buffer_cmd, inp.c_str());
+        memset(buffer_cmd, 0, sizeof(buffer_cmd));
+        send(sockfd_cmd, buffer_cmd, 1024, 0);
+        memset(buffer_cmd, 0, sizeof(buffer_cmd));
+        read(sockfd_cmd, buffer_cmd, 1024);
+        cout << buffer_cmd << endl;
+    }
     return 0;
 }

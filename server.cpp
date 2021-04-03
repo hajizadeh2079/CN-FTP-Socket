@@ -112,12 +112,16 @@ public:
         listen(sockfd_data, 5);
     }
 
+    void process_cmd(string inp) {
+
+    }
+
     void run() {
         fd_set fds;
         int max_sd, i, len, new_sock_cmd, new_sock_data, flag, valread;
         int cli_size_cmd = 10;
         int cli_size_data = 10;
-        while (1) {
+        while (true) {
             FD_ZERO(&fds);
             FD_SET(sockfd_cmd, &fds);
             max_sd = sockfd_cmd;
@@ -133,6 +137,7 @@ public:
             if (FD_ISSET(sockfd_cmd, &fds)) {
                 len = sizeof(addr_cmd);
                 new_sock_cmd = accept(sockfd_cmd, (struct sockaddr *)&addr_cmd, (socklen_t *)&len);
+                does_login[new_sock_cmd] = false;
 
                 flag = 0;
                 for (i = 0; i < cli_size_cmd; i++) {
@@ -168,15 +173,19 @@ public:
 
             for (i = 0; i < cli_size_cmd; i++) {
                 if (FD_ISSET(client_sock_cmd[i], &fds)) {
+                    memset(buffer_cmd, 0, sizeof(buffer_cmd));
                     valread = read(client_sock_cmd[i], buffer_cmd, 1024);
                     if (valread == 0) {
+                        login_user.erase(client_sock_cmd[i]);
+                        does_login.erase(client_sock_cmd[i]);
                         close(client_sock_cmd[i]);
                         client_sock_cmd[i] = 0;
                         close(client_sock_data[i]);
                         client_sock_data[i] = 0;
                     }
                     else {
-                        // Process Command
+                        string inp(buffer_cmd);
+                        process_cmd(inp);
                     }
                 }
             }
@@ -187,7 +196,8 @@ private:
     int data_channel_port;
     vector<User> users;
     vector<string> special_files;
-    map<int, string> login;
+    map<int, string> login_user;
+    map<int, bool> does_login;
     struct sockaddr_in addr_cmd;
     struct sockaddr_in addr_data;
     int sockfd_cmd;
