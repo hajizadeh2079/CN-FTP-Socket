@@ -37,6 +37,28 @@ int find_nth_occur(string str, char ch, int n) {
     return -1;
 }
 
+bool is_path_exist(string path) {
+    struct stat buffer;
+    return (stat (path.c_str(), &buffer) == 0);
+}
+
+string get_current_data_time() {
+    time_t tt;
+    struct tm * ti;
+    time (&tt);
+    ti = localtime(&tt);
+    return string(asctime(ti));
+}
+
+vector<string> convert_string_to_vector(string str) {
+    vector<string> temp;
+    istringstream ss(str);
+    string word;
+    while(ss >> word)
+        temp.push_back(word);
+    return temp;
+}
+
 
 class User {
 public:
@@ -52,8 +74,8 @@ public:
     string get_password() { return password; }
     bool is_admin() { return admin; }
     int get_size() { return size; }
-    string get_directory() {return directory;}
-    void set_directory(string dir) {directory = dir;}
+    string get_directory() { return directory; }
+    void set_directory(string dir) { directory = dir; }
 
     void decrease_size(int amount) { size -= amount; }
 private:
@@ -107,65 +129,53 @@ public:
             chdir(users[i].get_directory().c_str());
             rename(from.c_str(), to.c_str());
             chdir(main_dir.c_str());
+            return SUCCESSFUL_CHANGE; 
         }
-        return SUCCESSFUL_CHANGE; 
     }
 
     string change_dir(string dirname, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
         if(does_login.find(socket_num)->second == false)
             return NEED_LOGIN;
         string path;
-        string final_dir;
-        bool flag = false;
         for(int i = 0; i < users.size(); i++) {
             if(login_user[socket_num] == users[i].get_user()) {
                 path = users[i].get_directory() + "/" + dirname;
                 if(dirname == "") {
                     users[i].set_directory(string(get_current_dir_name()));
-                    flag = true;
+                    return SUCCESSFUL_CHANGE;
                 } 
                 else if(dirname == "..") {
                     if(string(get_current_dir_name()) != users[i].get_directory()) {
                         users[i].set_directory(users[i].get_directory().substr(0, users[i].get_directory().find_last_of("/")));
-                        flag = true;
+                        return SUCCESSFUL_CHANGE;
                     }
                 }
                 else if(is_path_exist(path)) {
                     users[i].set_directory(path);
-                    flag = true;
+                    return SUCCESSFUL_CHANGE;
                 }
-                final_dir = users[i].get_directory();
             }
         }
-        if(flag)
-            return SUCCESSFUL_CHANGE;
-        else
-            return ERROR;
+        return ERROR;
     }
 
-    bool is_path_exist(string path)
-    {
-        struct stat buffer;
-        return (stat (path.c_str(), &buffer) == 0);
-    }
-
-    string delete_file(string dirname, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
+    string delete_file(string filename, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
         if(does_login.find(socket_num)->second == false)
             return NEED_LOGIN;
 
         string path;
         for(int i = 0; i < users.size(); i++) {
             if(login_user[socket_num] == users[i].get_user()) {
-                path = users[i].get_directory() + "/" + dirname;
+                path = users[i].get_directory() + "/" + filename;
                 break;
             }
         } 
 
         if (remove(path.c_str()) == 0) {
             ofstream log_file("log.txt", ios_base::app);
-            log_file << login_user[socket_num] + " deleted " + dirname + " file. Time: " + get_current_data_time();
+            log_file << login_user[socket_num] + " deleted " + filename + " file. Time: " + get_current_data_time();
             log_file.close();
-            return "250: " + dirname + " deleted.";
+            return "250: " + filename + " deleted.";
         }
         else
             return ERROR;
@@ -193,23 +203,23 @@ public:
         }
     }
 
-    string make_new_file(string dirname, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
+    string make_new_file(string filename, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
         if(does_login.find(socket_num)->second == false)
             return NEED_LOGIN;
         
         string path;
         for(int i = 0; i < users.size(); i++) {
             if(login_user[socket_num] == users[i].get_user()) {
-                path = users[i].get_directory() + "/" + dirname;
+                path = users[i].get_directory() + "/" + filename;
                 break;
             }
         }
         ofstream user_file(path);
         user_file.close();
         ofstream log_file("log.txt", ios_base::app);
-        log_file << login_user[socket_num] + " made " + dirname + " file. Time: " + get_current_data_time();
+        log_file << login_user[socket_num] + " made " + filename + " file. Time: " + get_current_data_time();
         log_file.close();
-        return "257: " + dirname + " created.";
+        return "257: " + filename + " created.";
     }
 
     string make_new_dir(string dirname, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
@@ -237,11 +247,9 @@ public:
     string show_current_dir(map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
         if(does_login.find(socket_num)->second == false)
             return NEED_LOGIN;
-        for(int i = 0; i < users.size(); i++) {
-            if(login_user[socket_num] == users[i].get_user()) {
+        for(int i = 0; i < users.size(); i++)
+            if(login_user[socket_num] == users[i].get_user())
                 return "257: " + users[i].get_directory();
-            }
-        }
     }
 
     string quit_user(map<int, string> &login_user, map<int, bool> &does_login, int socket_num) {
@@ -253,7 +261,6 @@ public:
         login_user.erase(socket_num);
         does_login[socket_num] = false;
         return SUCCESSFUL_QUIT;
-        
     }
 
     string check_pass(string pass, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
@@ -261,54 +268,26 @@ public:
         it = login_user.find(socket_num);
         if (it == login_user.end())
             return BAD_SEQ;
-        bool flag = false;
         for(int i = 0; i < users.size(); i++) {
             if(it->second == users[i].get_user() && pass == users[i].get_password()) {
-                flag = true;
                 does_login[socket_num] = true;
-                break;
+                ofstream log_file("log.txt", ios_base::app);
+                log_file << login_user[socket_num] + " logged in. Time: " + get_current_data_time();
+                log_file.close();
+                return SUCCESSFUL_LOGIN;
             }
         }
-        if(flag) {
-            ofstream log_file("log.txt", ios_base::app);
-            log_file << login_user[socket_num] + " logged in. Time: " + get_current_data_time();
-            log_file.close();
-            return SUCCESSFUL_LOGIN;
-        }
-        else
-            return USER_PASSWORD_INVALID_MSG;
+        return USER_PASSWORD_INVALID_MSG;
     }
 
     string check_user(string user, map<int, string> &login_user, vector<User> &users, int socket_num) {
-        bool flag = false;
         for(int i = 0; i < users.size(); i++) {
             if(user == users[i].get_user()) {
-                flag = true;
                 login_user[socket_num] = user;
-                break;
+                return USER_OK_MSG;
             }
         }
-        if(flag)
-            return USER_OK_MSG;
-        else
-            return USER_PASSWORD_INVALID_MSG;
-    }
-
-    string get_current_data_time() {
-        time_t tt;
-        struct tm * ti;
-        time (&tt);
-        ti = localtime(&tt);
-        return string(asctime(ti));
-    }
-
-    vector<string> convert_string_to_vector(string str) {
-        vector<string> temp;
-        istringstream ss(str);
-        string word;
-        while(ss >> word)
-            temp.push_back(word);
-        return temp;
+        return USER_PASSWORD_INVALID_MSG;
     }
 };
 
