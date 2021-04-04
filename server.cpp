@@ -97,7 +97,7 @@ public:
         if(cmd_vector[0] == "pass" && cmd_vector.size() == 2)
             return check_pass(cmd_vector[1], login_user, does_login, users, socket_num);
         if(cmd_vector[0] == "quit" && cmd_vector.size() == 1)
-            return quit_user(login_user, does_login, socket_num);
+            return quit_user(login_user, does_login, users, socket_num);
         if(cmd_vector[0] == "pwd" && cmd_vector.size() == 1)
             return show_current_dir(login_user, does_login, users, socket_num);
         if(cmd_vector[0] == "mkd" && cmd_vector.size() == 2)
@@ -125,13 +125,17 @@ public:
         if(does_login.find(socket_num)->second == false)
             return NEED_LOGIN;
         string old_name, new_name;
+        int status;
         for(int i = 0; i < users.size(); i++) {
             if(login_user[socket_num] == users[i].get_user()) {
                 string main_dir(get_current_dir_name());
                 chdir(users[i].get_directory().c_str());
-                rename(from.c_str(), to.c_str());
+                status = rename(from.c_str(), to.c_str());
                 chdir(main_dir.c_str());
-                return SUCCESSFUL_CHANGE;
+                if(status == 0)
+                    return SUCCESSFUL_CHANGE;
+                else
+                    return ERROR;
             }
         }
         return ERROR;
@@ -257,12 +261,18 @@ public:
         return ERROR;
     }
 
-    string quit_user(map<int, string> &login_user, map<int, bool> &does_login, int socket_num) {
+    string quit_user(map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
         if(does_login.find(socket_num)->second == false)
             return NEED_LOGIN;
         ofstream log_file("log.txt", ios_base::app);
         log_file << login_user[socket_num] + " logged out. Time: " + get_current_data_time();
         log_file.close();
+        for(int i = 0; i < users.size(); i++) {
+            if(login_user[socket_num] == users[i].get_user()) {
+                users[i].set_directory(get_current_dir_name());
+                break;
+            }
+        }
         login_user.erase(socket_num);
         does_login[socket_num] = false;
         return SUCCESSFUL_QUIT;
@@ -421,6 +431,12 @@ public:
                     memset(buffer_cmd, 0, sizeof(buffer_cmd));
                     valread = read(client_sock_cmd[i], buffer_cmd, 1024);
                     if (valread == 0) {
+                        for(int i = 0; i < users.size(); i++) {
+                            if(login_user[client_sock_cmd[i]] == users[i].get_user()) {
+                                users[i].set_directory(get_current_dir_name());
+                                break;
+                            }
+                        }
                         login_user.erase(client_sock_cmd[i]);
                         does_login.erase(client_sock_cmd[i]);
                         close(client_sock_cmd[i]);
@@ -455,7 +471,6 @@ private:
     char buffer_cmd[1024] = {0};
     Handler handler;
 };
-
 
 
 int main(int argc, char const *argv[]) {
