@@ -24,6 +24,8 @@
 #define SUCCESSFUL_CHANGE "250: Successful change."
 #define ACCESS_ERROR "550: File unavailable."
 #define LS_DONE "226: List transfer done."
+#define SUCCESSFUL_DOWNLOAD "226: Successful Download."
+#define SIZE_ERROR "425: Can't open data connection."
 
 using namespace std;
 
@@ -69,7 +71,7 @@ public:
         password = _password;
         directory = _directory;
         admin = _admin;
-        size = _size;
+        size = _size * 1024;
     }
 
     string get_user() { return user; }
@@ -123,7 +125,50 @@ public:
             return change_file_name(cmd_vector[1], cmd_vector[2], login_user, does_login, users, special_files, socket_num);
         if(cmd_vector[0] == "ls" && cmd_vector.size() == 1)
             return show_ls(login_user, does_login, cmd_data, users, socket_num);
+        if(cmd_vector[0] == "retr" && cmd_vector.size() == 2)
+            return download_file(cmd_vector[1], login_user, does_login, cmd_data, users, special_files, socket_num);
         return WRONG_CMD;
+    }
+
+    string download_file(string filename, map<int, string> &login_user, map<int, bool> &does_login, map<int, int> &cmd_data, vector<User> &users, vector<string> &special_files, int socket_num) {
+        if(does_login.find(socket_num)->second == false)
+            return NEED_LOGIN;
+
+        string path;
+        bool admin;
+        int size;
+        int i;
+        for(i = 0; i < users.size(); i++) {
+            if(login_user[socket_num] == users[i].get_user()) {
+                path = users[i].get_directory() + "/" + filename;
+                admin = users[i].is_admin();
+                size = users[i].get_size();
+                break;
+            }
+        }
+
+        if (is_accessible(admin, path, special_files) == false)
+            return ACCESS_ERROR;
+
+        ifstream dw_file(path);
+        if (dw_file.is_open() == false)
+            return ERROR;
+
+        string file = "";
+        string line;
+        while (getline(dw_file, line))
+            file = file + line + "\n";
+        dw_file.close();
+
+        if (size < file.length())
+            return SIZE_ERROR;
+
+        users[i].decrease_size(file.length());
+        ofstream log_file("log.txt", ios_base::app);
+        log_file << login_user[socket_num] + " downloaded " + filename + " file. Time: " + get_current_data_time();
+        log_file.close();
+        send(cmd_data[socket_num], file.c_str(), file.size(), 0);
+        return SUCCESSFUL_DOWNLOAD;
     }
 
     string show_ls(map<int, string> &login_user, map<int, bool> &does_login, map<int, int> &cmd_data, vector<User> &users, int socket_num) {
