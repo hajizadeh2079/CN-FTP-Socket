@@ -90,34 +90,35 @@ class Handler {
 public:
     string handle_cmd(string cmd, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
         vector<string> cmd_vector = convert_string_to_vector(cmd);
-        if(cmd_vector[0] == "user")
+        if(cmd_vector.size() == 0)
+            return WRONG_CMD;
+        if(cmd_vector[0] == "user" && cmd_vector.size() == 2)
             return check_user(cmd_vector[1], login_user, users, socket_num);
-        else if(cmd_vector[0] == "pass")
+        if(cmd_vector[0] == "pass" && cmd_vector.size() == 2)
             return check_pass(cmd_vector[1], login_user, does_login, users, socket_num);
-        else if(cmd_vector[0] == "quit")
+        if(cmd_vector[0] == "quit" && cmd_vector.size() == 1)
             return quit_user(login_user, does_login, socket_num);
-        else if(cmd_vector[0] == "pwd")
+        if(cmd_vector[0] == "pwd" && cmd_vector.size() == 1)
             return show_current_dir(login_user, does_login, users, socket_num);
-        else if(cmd_vector[0] == "mkd")
+        if(cmd_vector[0] == "mkd" && cmd_vector.size() == 2)
             return make_new_dir(cmd_vector[1], login_user, does_login, users, socket_num);
-        else if(cmd_vector[0] == "mkf")
+        if(cmd_vector[0] == "mkf" && cmd_vector.size() == 2)
             return make_new_file(cmd_vector[1], login_user, does_login, users, socket_num);
-        else if(cmd_vector[0] == "dele") {
+        if(cmd_vector[0] == "dele" && cmd_vector.size() == 3) {
             if(cmd_vector[1] == "-d")
                 return delete_dir(cmd_vector[2], login_user, does_login, users, socket_num);
             else if(cmd_vector[1] == "-f")
                 return delete_file(cmd_vector[2], login_user, does_login, users, socket_num);
         }
-        else if(cmd_vector[0] == "cwd") {
+        if(cmd_vector[0] == "cwd" && cmd_vector.size() <= 2) {
             if(cmd_vector.size() == 1)
                 return change_dir("", login_user, does_login, users, socket_num);
             else
                 return change_dir(cmd_vector[1], login_user, does_login, users, socket_num);
         }
-        else if(cmd_vector[0] == "rename")
+        if(cmd_vector[0] == "rename" && cmd_vector.size() == 3)
             return change_file_name(cmd_vector[1], cmd_vector[2], login_user, does_login, users, socket_num);
-        else
-            return WRONG_CMD;
+        return WRONG_CMD;
     }
 
     string change_file_name(string from, string to, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
@@ -125,12 +126,15 @@ public:
             return NEED_LOGIN;
         string old_name, new_name;
         for(int i = 0; i < users.size(); i++) {
-            string main_dir(get_current_dir_name());
-            chdir(users[i].get_directory().c_str());
-            rename(from.c_str(), to.c_str());
-            chdir(main_dir.c_str());
-            return SUCCESSFUL_CHANGE; 
+            if(login_user[socket_num] == users[i].get_user()) {
+                string main_dir(get_current_dir_name());
+                chdir(users[i].get_directory().c_str());
+                rename(from.c_str(), to.c_str());
+                chdir(main_dir.c_str());
+                return SUCCESSFUL_CHANGE;
+            }
         }
+        return ERROR;
     }
 
     string change_dir(string dirname, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
@@ -250,6 +254,7 @@ public:
         for(int i = 0; i < users.size(); i++)
             if(login_user[socket_num] == users[i].get_user())
                 return "257: " + users[i].get_directory();
+        return ERROR;
     }
 
     string quit_user(map<int, string> &login_user, map<int, bool> &does_login, int socket_num) {
