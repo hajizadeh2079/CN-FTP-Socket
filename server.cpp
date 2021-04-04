@@ -22,6 +22,7 @@
 #define WRONG_CMD "501: Syntax error in parameters or arguments"
 #define ERROR "500: Error"
 #define SUCCESSFUL_CHANGE "250: Successful change."
+#define ACCESS_ERROR "550: File unavailable."
 
 using namespace std;
 
@@ -88,7 +89,7 @@ private:
 
 class Handler {
 public:
-    string handle_cmd(string cmd, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
+    string handle_cmd(string cmd, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, vector<string> &special_files, int socket_num) {
         vector<string> cmd_vector = convert_string_to_vector(cmd);
         if(cmd_vector.size() == 0)
             return WRONG_CMD;
@@ -108,7 +109,7 @@ public:
             if(cmd_vector[1] == "-d")
                 return delete_dir(cmd_vector[2], login_user, does_login, users, socket_num);
             else if(cmd_vector[1] == "-f")
-                return delete_file(cmd_vector[2], login_user, does_login, users, socket_num);
+                return delete_file(cmd_vector[2], login_user, does_login, users, special_files, socket_num);
         }
         if(cmd_vector[0] == "cwd" && cmd_vector.size() <= 2) {
             if(cmd_vector.size() == 1)
@@ -117,17 +118,21 @@ public:
                 return change_dir(cmd_vector[1], login_user, does_login, users, socket_num);
         }
         if(cmd_vector[0] == "rename" && cmd_vector.size() == 3)
-            return change_file_name(cmd_vector[1], cmd_vector[2], login_user, does_login, users, socket_num);
+            return change_file_name(cmd_vector[1], cmd_vector[2], login_user, does_login, users, special_files, socket_num);
         return WRONG_CMD;
     }
 
-    string change_file_name(string from, string to, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
+    string change_file_name(string from, string to, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, vector<string> &special_files, int socket_num) {
         if(does_login.find(socket_num)->second == false)
             return NEED_LOGIN;
         string old_name, new_name;
         int status;
+        bool admin;
         for(int i = 0; i < users.size(); i++) {
             if(login_user[socket_num] == users[i].get_user()) {
+                admin = users[i].is_admin();
+                if (is_accessible(admin, users[i].get_directory() + "/" + from, special_files) == false)
+                    return ACCESS_ERROR;
                 string main_dir(get_current_dir_name());
                 chdir(users[i].get_directory().c_str());
                 status = rename(from.c_str(), to.c_str());
@@ -167,17 +172,22 @@ public:
         return ERROR;
     }
 
-    string delete_file(string filename, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
+    string delete_file(string filename, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, vector<string> &special_files, int socket_num) {
         if(does_login.find(socket_num)->second == false)
             return NEED_LOGIN;
 
         string path;
+        bool admin;
         for(int i = 0; i < users.size(); i++) {
             if(login_user[socket_num] == users[i].get_user()) {
                 path = users[i].get_directory() + "/" + filename;
+                admin = users[i].is_admin();
                 break;
             }
-        } 
+        }
+
+        if (is_accessible(admin, path, special_files) == false)
+            return ACCESS_ERROR;
 
         if (remove(path.c_str()) == 0) {
             ofstream log_file("log.txt", ios_base::app);
@@ -303,6 +313,15 @@ public:
             }
         }
         return USER_PASSWORD_INVALID_MSG;
+    }
+
+    bool is_accessible(bool admin, string file_path, vector<string> &special_files) {
+        string current(get_current_dir_name());
+        current += "/";
+        for(int i = 0; i < special_files.size(); i++)
+            if(file_path == (current + special_files[i]))
+                return admin;
+        return true;
     }
 };
 
@@ -446,7 +465,7 @@ public:
                     }
                     else {
                         string cmd(buffer_cmd);
-                        string result = handler.handle_cmd(cmd, login_user, does_login, users, client_sock_cmd[i]);
+                        string result = handler.handle_cmd(cmd, login_user, does_login, users, special_files, client_sock_cmd[i]);
                         memset(buffer_cmd, 0, sizeof(buffer_cmd));
                         strcpy(buffer_cmd, result.c_str());
                         send(client_sock_cmd[i], buffer_cmd, 1024, 0);
