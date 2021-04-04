@@ -42,6 +42,12 @@ int main(int argc, char* argv[]) {
         memset(buffer_cmd, 0, sizeof(buffer_cmd));
         read(sockfd_cmd, buffer_cmd, 1024);
         cout << buffer_cmd << endl;
+        string temp(buffer_cmd);
+        if (temp.substr(0, 3) == "226") {
+            memset(buffer_data, 0, sizeof(buffer_data));
+            read(sockfd_data, buffer_data, 1024);
+            cout << buffer_data << endl;
+        }
     }
     return 0;
 }

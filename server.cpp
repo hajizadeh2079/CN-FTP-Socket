@@ -23,6 +23,7 @@
 #define ERROR "500: Error"
 #define SUCCESSFUL_CHANGE "250: Successful change."
 #define ACCESS_ERROR "550: File unavailable."
+#define LS_DONE "226: List transfer done."
 
 using namespace std;
 
@@ -87,9 +88,10 @@ private:
     int size;
 };
 
+
 class Handler {
 public:
-    string handle_cmd(string cmd, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, vector<string> &special_files, int socket_num) {
+    string handle_cmd(string cmd, map<int, string> &login_user, map<int, bool> &does_login, map<int, int> &cmd_data, vector<User> &users, vector<string> &special_files, int socket_num) {
         vector<string> cmd_vector = convert_string_to_vector(cmd);
         if(cmd_vector.size() == 0)
             return WRONG_CMD;
@@ -119,13 +121,34 @@ public:
         }
         if(cmd_vector[0] == "rename" && cmd_vector.size() == 3)
             return change_file_name(cmd_vector[1], cmd_vector[2], login_user, does_login, users, special_files, socket_num);
+        if(cmd_vector[0] == "ls" && cmd_vector.size() == 1)
+            return show_ls(login_user, does_login, cmd_data, users, socket_num);
         return WRONG_CMD;
+    }
+
+    string show_ls(map<int, string> &login_user, map<int, bool> &does_login, map<int, int> &cmd_data, vector<User> &users, int socket_num) {
+        if(does_login.find(socket_num)->second == false)
+            return NEED_LOGIN;
+        string path;
+        for(int i = 0; i < users.size(); i++) {
+            if(login_user[socket_num] == users[i].get_user()) {
+                path = users[i].get_directory();
+                break;
+            }
+        }
+        struct dirent *entry;
+        string ls = "";
+        DIR *dir = opendir(path.c_str());
+        while ((entry = readdir(dir)) != NULL)
+            ls = ls + (entry->d_name) + " ";
+        closedir(dir);
+        send(cmd_data[socket_num], ls.c_str(), ls.size(), 0);
+        return LS_DONE;
     }
 
     string change_file_name(string from, string to, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, vector<string> &special_files, int socket_num) {
         if(does_login.find(socket_num)->second == false)
             return NEED_LOGIN;
-        string old_name, new_name;
         int status;
         bool admin;
         for(int i = 0; i < users.size(); i++) {
@@ -156,7 +179,7 @@ public:
                 if(dirname == "") {
                     users[i].set_directory(string(get_current_dir_name()));
                     return SUCCESSFUL_CHANGE;
-                } 
+                }
                 else if(dirname == "..") {
                     if(string(get_current_dir_name()) != users[i].get_directory()) {
                         users[i].set_directory(users[i].get_directory().substr(0, users[i].get_directory().find_last_of("/")));
@@ -198,11 +221,11 @@ public:
         else
             return ERROR;
     }
-    
+
     string delete_dir(string dirname, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
         if(does_login.find(socket_num)->second == false)
             return NEED_LOGIN;
-        
+
         string path;
         for(int i = 0; i < users.size(); i++) {
             if(login_user[socket_num] == users[i].get_user()) {
@@ -212,7 +235,7 @@ public:
         } 
         if(rmdir(path.c_str()) == -1)
             return ERROR;
-  
+
         else {
             ofstream log_file("log.txt", ios_base::app);
             log_file << login_user[socket_num] + " deleted " + dirname + " directory. Time: " + get_current_data_time();
@@ -224,7 +247,7 @@ public:
     string make_new_file(string filename, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
         if(does_login.find(socket_num)->second == false)
             return NEED_LOGIN;
-        
+
         string path;
         for(int i = 0; i < users.size(); i++) {
             if(login_user[socket_num] == users[i].get_user()) {
@@ -243,17 +266,17 @@ public:
     string make_new_dir(string dirname, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
         if(does_login.find(socket_num)->second == false)
             return NEED_LOGIN;
-        
+
         string path;
         for(int i = 0; i < users.size(); i++) {
             if(login_user[socket_num] == users[i].get_user()) {
                 path = users[i].get_directory() + "/" + dirname;
                 break;
             }
-        } 
+        }
+
         if(mkdir(path.c_str(), 0777) == -1)
             return ERROR;
-  
         else {
             ofstream log_file("log.txt", ios_base::app);
             log_file << login_user[socket_num] + " made " + dirname + " directory. Time: " + get_current_data_time();
@@ -261,7 +284,7 @@ public:
             return "257: " + dirname + " created.";
         }
     }
-    
+
     string show_current_dir(map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
         if(does_login.find(socket_num)->second == false)
             return NEED_LOGIN;
@@ -324,6 +347,7 @@ public:
         return true;
     }
 };
+
 
 class Server {
 public:
@@ -429,6 +453,7 @@ public:
 
                 len = sizeof(addr_data);
                 new_sock_data = accept(sockfd_data, (struct sockaddr *)&addr_data, (socklen_t *)&len);
+                cmd_data[new_sock_cmd] = new_sock_data;
 
                 flag = 0;
                 for (i = 0; i < cli_size_data; i++) {
@@ -458,6 +483,7 @@ public:
                         }
                         login_user.erase(client_sock_cmd[i]);
                         does_login.erase(client_sock_cmd[i]);
+                        cmd_data.erase(client_sock_cmd[i]);
                         close(client_sock_cmd[i]);
                         client_sock_cmd[i] = 0;
                         close(client_sock_data[i]);
@@ -465,7 +491,7 @@ public:
                     }
                     else {
                         string cmd(buffer_cmd);
-                        string result = handler.handle_cmd(cmd, login_user, does_login, users, special_files, client_sock_cmd[i]);
+                        string result = handler.handle_cmd(cmd, login_user, does_login, cmd_data, users, special_files, client_sock_cmd[i]);
                         memset(buffer_cmd, 0, sizeof(buffer_cmd));
                         strcpy(buffer_cmd, result.c_str());
                         send(client_sock_cmd[i], buffer_cmd, 1024, 0);
@@ -481,6 +507,7 @@ private:
     vector<string> special_files;
     map<int, string> login_user;
     map<int, bool> does_login;
+    map<int, int> cmd_data;
     struct sockaddr_in addr_cmd;
     struct sockaddr_in addr_data;
     int sockfd_cmd;
