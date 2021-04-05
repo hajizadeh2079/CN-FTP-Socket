@@ -79,6 +79,7 @@ public:
     bool is_admin() { return admin; }
     int get_size() { return size; }
     string get_directory() { return directory; }
+
     void set_directory(string dir) { directory = dir; }
 
     void decrease_size(int amount) { size -= amount; }
@@ -98,7 +99,7 @@ public:
         if(cmd_vector.size() == 0)
             return WRONG_CMD;
         if(cmd_vector[0] == "user" && cmd_vector.size() == 2)
-            return check_user(cmd_vector[1], login_user, users, socket_num);
+            return check_user(cmd_vector[1], login_user, does_login, users, socket_num);
         if(cmd_vector[0] == "pass" && cmd_vector.size() == 2)
             return check_pass(cmd_vector[1], login_user, does_login, users, socket_num);
         if(cmd_vector[0] == "quit" && cmd_vector.size() == 1)
@@ -112,7 +113,7 @@ public:
         if(cmd_vector[0] == "dele" && cmd_vector.size() == 3) {
             if(cmd_vector[1] == "-d")
                 return delete_dir(cmd_vector[2], login_user, does_login, users, socket_num);
-            else if(cmd_vector[1] == "-f")
+            if(cmd_vector[1] == "-f")
                 return delete_file(cmd_vector[2], login_user, does_login, users, special_files, socket_num);
         }
         if(cmd_vector[0] == "cwd" && cmd_vector.size() <= 2) {
@@ -127,7 +128,15 @@ public:
             return show_ls(login_user, does_login, cmd_data, users, socket_num);
         if(cmd_vector[0] == "retr" && cmd_vector.size() == 2)
             return download_file(cmd_vector[1], login_user, does_login, cmd_data, users, special_files, socket_num);
+        if(cmd_vector[0] == "help" && cmd_vector.size() == 1)
+            return show_help();
         return WRONG_CMD;
+    }
+
+    string show_help() {
+        string help = "214\n";
+        help += "...\n";
+        return help;
     }
 
     string download_file(string filename, map<int, string> &login_user, map<int, bool> &does_login, map<int, int> &cmd_data, vector<User> &users, vector<string> &special_files, int socket_num) {
@@ -185,7 +194,7 @@ public:
         string ls = "";
         DIR *dir = opendir(path.c_str());
         while ((entry = readdir(dir)) != NULL)
-            ls = ls + (entry->d_name) + " ";
+            ls = ls + (entry->d_name) + "\n";
         closedir(dir);
         send(cmd_data[socket_num], ls.c_str(), ls.size(), 0);
         return LS_DONE;
@@ -205,10 +214,13 @@ public:
                 chdir(users[i].get_directory().c_str());
                 status = rename(from.c_str(), to.c_str());
                 chdir(main_dir.c_str());
-                if(status == 0)
+                if(status == 0) {
+                    ofstream log_file("log.txt", ios_base::app);
+                    log_file << login_user[socket_num] + " renamed " + users[i].get_directory() + "/" + from + " file to " + to + ". Time: " + get_current_data_time();
+                    log_file.close();
                     return SUCCESSFUL_CHANGE;
-                else
-                    return ERROR;
+                }
+                return ERROR;
             }
         }
         return ERROR;
@@ -225,13 +237,14 @@ public:
                     users[i].set_directory(string(get_current_dir_name()));
                     return SUCCESSFUL_CHANGE;
                 }
-                else if(dirname == "..") {
+                if(dirname == "..") {
                     if(string(get_current_dir_name()) != users[i].get_directory()) {
                         users[i].set_directory(users[i].get_directory().substr(0, users[i].get_directory().find_last_of("/")));
                         return SUCCESSFUL_CHANGE;
                     }
+                    return ERROR;
                 }
-                else if(is_path_exist(path)) {
+                if(is_path_exist(path)) {
                     users[i].set_directory(path);
                     return SUCCESSFUL_CHANGE;
                 }
@@ -263,8 +276,7 @@ public:
             log_file.close();
             return "250: " + filename + " deleted.";
         }
-        else
-            return ERROR;
+        return ERROR;
     }
 
     string delete_dir(string dirname, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
@@ -277,16 +289,14 @@ public:
                 path = users[i].get_directory() + "/" + dirname;
                 break;
             }
-        } 
+        }
         if(rmdir(path.c_str()) == -1)
             return ERROR;
 
-        else {
-            ofstream log_file("log.txt", ios_base::app);
-            log_file << login_user[socket_num] + " deleted " + dirname + " directory. Time: " + get_current_data_time();
-            log_file.close();
-            return "250: " + dirname + " deleted.";
-        }
+        ofstream log_file("log.txt", ios_base::app);
+        log_file << login_user[socket_num] + " deleted " + dirname + " directory. Time: " + get_current_data_time();
+        log_file.close();
+        return "250: " + dirname + " deleted.";
     }
 
     string make_new_file(string filename, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
@@ -300,6 +310,13 @@ public:
                 break;
             }
         }
+
+        ifstream new_file(path);
+        if (new_file.is_open() == true) {
+            new_file.close();
+            return ERROR;
+        }
+
         ofstream user_file(path);
         user_file.close();
         ofstream log_file("log.txt", ios_base::app);
@@ -322,12 +339,11 @@ public:
 
         if(mkdir(path.c_str(), 0777) == -1)
             return ERROR;
-        else {
-            ofstream log_file("log.txt", ios_base::app);
-            log_file << login_user[socket_num] + " made " + dirname + " directory. Time: " + get_current_data_time();
-            log_file.close();
-            return "257: " + dirname + " created.";
-        }
+
+        ofstream log_file("log.txt", ios_base::app);
+        log_file << login_user[socket_num] + " made " + dirname + " directory. Time: " + get_current_data_time();
+        log_file.close();
+        return "257: " + dirname + " created.";
     }
 
     string show_current_dir(map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
@@ -359,7 +375,7 @@ public:
     string check_pass(string pass, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
         map<int ,string>::iterator it;
         it = login_user.find(socket_num);
-        if (it == login_user.end())
+        if (it == login_user.end() || does_login[socket_num] == true)
             return BAD_SEQ;
         for(int i = 0; i < users.size(); i++) {
             if(it->second == users[i].get_user() && pass == users[i].get_password()) {
@@ -373,7 +389,9 @@ public:
         return USER_PASSWORD_INVALID_MSG;
     }
 
-    string check_user(string user, map<int, string> &login_user, vector<User> &users, int socket_num) {
+    string check_user(string user, map<int, string> &login_user, map<int, bool> &does_login, vector<User> &users, int socket_num) {
+        if (does_login[socket_num] == true)
+            return BAD_SEQ;
         for(int i = 0; i < users.size(); i++) {
             if(user == users[i].get_user()) {
                 login_user[socket_num] = user;
@@ -528,11 +546,13 @@ public:
                         }
                         login_user.erase(client_sock_cmd[i]);
                         does_login.erase(client_sock_cmd[i]);
+                        close(cmd_data[client_sock_cmd[i]]);
+                        for (i = 0; i < cli_size_data; i++)
+                            if (client_sock_data[i] == cmd_data[client_sock_cmd[i]])
+                                client_sock_data[i] = 0;
                         cmd_data.erase(client_sock_cmd[i]);
                         close(client_sock_cmd[i]);
                         client_sock_cmd[i] = 0;
-                        close(client_sock_data[i]);
-                        client_sock_data[i] = 0;
                     }
                     else {
                         string cmd(buffer_cmd);

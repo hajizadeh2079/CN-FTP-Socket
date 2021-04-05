@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
     int port_cmd, sockfd_cmd, port_data, sockfd_data;
     struct sockaddr_in serv_addr_cmd, serv_addr_data;
     char buffer_cmd[1024] = {0};
-    char buffer_data[1024] = {0};
+    char buffer_data[1048576] = {0};
 
     port_cmd = atoi(argv[1]);
     port_data = atoi(argv[2]);
@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
         string temp(buffer_cmd);
         if (temp.substr(0, 3) == "226") {
             memset(buffer_data, 0, sizeof(buffer_data));
-            read(sockfd_data, buffer_data, 1024);
+            read(sockfd_data, buffer_data, 1048576);
             cout << buffer_data << endl;
         }
     }
