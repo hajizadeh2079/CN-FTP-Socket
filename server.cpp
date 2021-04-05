@@ -134,8 +134,12 @@ public:
     }
 
     string show_help() {
-        string help = "214\n";
-        help += "...\n";
+        ifstream help_file("help.txt");
+        string line;
+        string help = "";
+        while (getline(help_file, line))
+            help = help + line + "\n";
+        help_file.close();
         return help;
     }
 
@@ -536,7 +540,7 @@ public:
             for (i = 0; i < cli_size_cmd; i++) {
                 if (FD_ISSET(client_sock_cmd[i], &fds)) {
                     memset(buffer_cmd, 0, sizeof(buffer_cmd));
-                    valread = read(client_sock_cmd[i], buffer_cmd, 1024);
+                    valread = read(client_sock_cmd[i], buffer_cmd, 2048);
                     if (valread == 0) {
                         for(int i = 0; i < users.size(); i++) {
                             if(login_user[client_sock_cmd[i]] == users[i].get_user()) {
@@ -559,7 +563,7 @@ public:
                         string result = handler.handle_cmd(cmd, login_user, does_login, cmd_data, users, special_files, client_sock_cmd[i]);
                         memset(buffer_cmd, 0, sizeof(buffer_cmd));
                         strcpy(buffer_cmd, result.c_str());
-                        send(client_sock_cmd[i], buffer_cmd, 1024, 0);
+                        send(client_sock_cmd[i], buffer_cmd, 2048, 0);
                     }
                 }
             }
@@ -579,7 +583,7 @@ private:
     int sockfd_data;
     int *client_sock_cmd;
     int *client_sock_data;
-    char buffer_cmd[1024] = {0};
+    char buffer_cmd[2048] = {0};
     Handler handler;
 };
 

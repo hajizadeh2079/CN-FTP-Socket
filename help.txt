@@ -1,0 +1,22 @@
+USER [name], Its argument is used to specify the user’s string. It is used for user authentication.
+
+Pass [password], Its argument is used to specify the user’s entry password. It is used for user authentication.
+
+PWD, It shows the directory in which you are now.
+
+MKD [directory path], This command makes a new directory in the path passed to it in the server.
+MKF [filename], This command makes a new file in the path that user is working in it.
+
+DELE -F [filename], Deletes the file with the name passed .
+DELE -D [directory path], Deletes the director with the address passed.
+
+LS, Shows list of the files in the directory you are now.
+
+CWD [path], This command changes the directory to the path passed to it.
+".." is used to go to prevoius directory and no argument means initial directory.
+
+RENAME [from] [to], It rename the file with the name 'from' to 'to' if exists.
+
+RETR [name], This downloads the file with the name passed to it if exists.
+
+QUIT, This command disconnects the client from the server.
